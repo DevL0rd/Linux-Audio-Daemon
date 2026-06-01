@@ -1,6 +1,7 @@
+import os
 import time
 import subprocess
-from core.config import load_config, save_config, ensure_device_in_config
+from core.config import load_config, save_config, ensure_device_in_config, CONFIG_FILE
 from core.audio_monitor import AudioMonitor
 from core.bt_battery_monitor import BluetoothBatteryMonitor
 from devices.rog_delta_ii import RogDeltaII
@@ -21,6 +22,7 @@ def send_notification(title, message, icon="audio-card", urgency="normal"):
 class PriorityRouter:
     def __init__(self):
         self.config = load_config()
+        self.last_config_mtime = os.path.getmtime(CONFIG_FILE) if os.path.exists(CONFIG_FILE) else 0
         self.audio_monitor = AudioMonitor(self.on_system_audio_change)
         self.bt_battery_monitor = BluetoothBatteryMonitor(self.on_bt_battery)
         
@@ -96,6 +98,14 @@ class PriorityRouter:
         self.evaluate_routing()
         
     def evaluate_routing(self):
+        # Reload config from disk if it was modified manually
+        if os.path.exists(CONFIG_FILE):
+            current_mtime = os.path.getmtime(CONFIG_FILE)
+            if current_mtime > self.last_config_mtime:
+                self.config = load_config()
+                self.last_config_mtime = current_mtime
+                print("[Config] Reloaded changes from config.json")
+                
         system_devices = self.audio_monitor.get_current_devices()
         config_changed = False
         
@@ -106,6 +116,7 @@ class PriorityRouter:
                 
         if config_changed:
             save_config(self.config)
+            self.last_config_mtime = os.path.getmtime(CONFIG_FILE)
             
         # Determine available devices based on config and hardware status
         available_sinks = []
