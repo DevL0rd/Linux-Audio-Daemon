@@ -41,7 +41,7 @@ class AudioMonitor:
                 continue
                 
             if current_section in ["Sinks", "Sources"]:
-                clean_line = line.replace("*", "").strip()
+                clean_line = line.replace("*", "").strip(' │\t\n\r')
                 if not clean_line: continue
                 if clean_line.startswith("├─") or clean_line.startswith("└─"): continue
                 
