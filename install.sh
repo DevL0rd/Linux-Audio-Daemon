@@ -2,7 +2,7 @@
 set -e
 
 REPO_DIR=$(pwd)
-if [ ! -f "$REPO_DIR/daemon.py" ]; then
+if [ ! -f "$REPO_DIR/src/daemon.py" ]; then
     echo "Please run this script from the repository directory."
     exit 1
 fi
@@ -24,10 +24,11 @@ After=pipewire.service wireplumber.service
 [Service]
 Type=simple
 WorkingDirectory=$REPO_DIR
-ExecStart=/usr/bin/python3 $REPO_DIR/daemon.py
+ExecStart=/usr/bin/python3 $REPO_DIR/src/daemon.py
 Restart=always
 RestartSec=3
 Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONPATH=$REPO_DIR/src
 
 [Install]
 WantedBy=default.target

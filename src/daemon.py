@@ -1,8 +1,8 @@
 import time
 import subprocess
-from config import load_config, save_config, ensure_device_in_config
-from audio_monitor import AudioMonitor
-from rog_delta_ii import RogDeltaII
+from core.config import load_config, save_config, ensure_device_in_config
+from core.audio_monitor import AudioMonitor
+from devices.rog_delta_ii import RogDeltaII
 
 def send_notification(title, message, icon="audio-card", urgency="normal"):
     try:
