@@ -8,14 +8,19 @@ class RogDeltaII:
         self.is_connected = False
         
     def _find_hidraw(self, vendor_id, product_id):
-        target = f"{vendor_id}:{product_id}".lower()
+        v_id = int(vendor_id, 16)
+        p_id = int(product_id, 16)
+        
         for path in glob.glob("/sys/class/hidraw/*"):
             uevent_path = os.path.join(path, "device", "uevent")
             if os.path.exists(uevent_path):
                 with open(uevent_path, "r") as f:
-                    content = f.read().lower()
-                    if target in content:
-                        return f"/dev/{os.path.basename(path)}"
+                    for line in f:
+                        if line.startswith("HID_ID="):
+                            parts = line.strip().split("=")[1].split(":")
+                            if len(parts) == 3:
+                                if int(parts[1], 16) == v_id and int(parts[2], 16) == p_id:
+                                    return f"/dev/{os.path.basename(path)}"
         return None
 
     def listen(self):
