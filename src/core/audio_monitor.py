@@ -36,6 +36,10 @@ class AudioMonitor:
                 node_id = props.get("object.id")
                 
                 if name and node_id:
+                    # Ignore loopback monitor devices to keep the config clean
+                    if name.startswith("Monitor of "):
+                        continue
+                        
                     devices.append({
                         "id": str(node_id),
                         "name": name,
