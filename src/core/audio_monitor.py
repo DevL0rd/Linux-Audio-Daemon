@@ -1,6 +1,6 @@
 import subprocess
 import threading
-import re
+import json
 import time
 
 class AudioMonitor:
@@ -24,36 +24,28 @@ class AudioMonitor:
         except Exception as e:
             print(f"[Audio Monitor] Error starting pactl subscribe: {e}")
 
-    def get_current_devices(self):
+    def _get_devices_from_pactl(self, device_type):
         devices = []
         try:
-            out = subprocess.check_output(["wpctl", "status"]).decode()
-        except Exception as e:
-            print(f"[Audio Monitor] Error running wpctl: {e}")
-            return devices
-            
-        current_section = None
-        for line in out.splitlines():
-            # Detect sections like " ├─ Sinks:"
-            match = re.search(r'[├└]─\s+([A-Za-z]+):', line)
-            if match:
-                current_section = match.group(1)
-                continue
+            out = subprocess.check_output(["pactl", "-f", "json", "list", device_type]).decode()
+            data = json.loads(out)
+            for item in data:
+                name = item.get("description")
+                # PipeWire exposes its native WirePlumber ID inside PulseAudio properties
+                props = item.get("properties", {})
+                node_id = props.get("object.id")
                 
-            if current_section in ["Sinks", "Sources"]:
-                clean_line = line.replace("*", "").strip(' │\t\n\r')
-                if not clean_line: continue
-                if clean_line.startswith("├─") or clean_line.startswith("└─"): continue
-                
-                # Extract ID and Name, ignoring the [vol: X] at the end
-                m = re.search(r'^(\d+)\.\s+(.*?)(?:\s+\[.*\])?$', clean_line)
-                if m:
-                    node_id = m.group(1)
-                    name = m.group(2).strip()
-                    is_sink = (current_section == "Sinks")
+                if name and node_id:
                     devices.append({
-                        "id": node_id,
+                        "id": str(node_id),
                         "name": name,
-                        "is_sink": is_sink
+                        "is_sink": (device_type == "sinks")
                     })
+        except Exception as e:
+            print(f"[Audio Monitor] Error parsing JSON for {device_type}: {e}")
         return devices
+
+    def get_current_devices(self):
+        sinks = self._get_devices_from_pactl("sinks")
+        sources = self._get_devices_from_pactl("sources")
+        return sinks + sources
