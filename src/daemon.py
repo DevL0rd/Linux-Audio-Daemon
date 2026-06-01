@@ -25,6 +25,7 @@ class PriorityRouter:
         # State
         self.rog_connected = False
         self.current_sink_name = None
+        self.current_source_name = None
         self.battery_last_notified = None
         
         self.rog_watcher = RogDeltaII({
@@ -98,11 +99,11 @@ class PriorityRouter:
         if config_changed:
             save_config(self.config)
             
-        # Determine available sinks based on config and hardware status
+        # Determine available devices based on config and hardware status
         available_sinks = []
+        available_sources = []
+        
         for dev in system_devices:
-            if not dev["is_sink"]: continue
-            
             c_info = self.config["devices"].get(dev["name"])
             if not c_info: continue
             
@@ -111,35 +112,50 @@ class PriorityRouter:
                 if not self.rog_connected:
                     continue 
                     
-            available_sinks.append({
+            node = {
                 "id": dev["id"],
                 "name": dev["name"],
                 "priority": c_info.get("priority", 0),
                 "icon": c_info.get("icon", "audio-card")
-            })
+            }
+            
+            if dev["is_sink"]:
+                available_sinks.append(node)
+            else:
+                available_sources.append(node)
             
         # Sort highest priority first
         available_sinks.sort(key=lambda x: x["priority"], reverse=True)
+        available_sources.sort(key=lambda x: x["priority"], reverse=True)
         
-        if not available_sinks:
-            return
-            
-        best_sink = available_sinks[0]
-        
-        # Only switch if the best sink changed
-        if self.current_sink_name != best_sink["name"]:
-            print(f"[Router] Switching audio to: {best_sink['name']} (Priority: {best_sink['priority']})")
-            subprocess.run(["wpctl", "set-default", best_sink["id"]])
-            
-            # Determine appropriate notification wording based on what we are switching to/from
-            if self.config["devices"][best_sink["name"]]["type"] == "special_rog":
-                 send_notification("Headset Connected", f"Routed audio to {best_sink['name']}", best_sink["icon"])
-            elif self.current_sink_name and self.config["devices"].get(self.current_sink_name, {}).get("type") == "special_rog":
-                 send_notification("Headset Disconnected", f"Fell back to {best_sink['name']}", best_sink["icon"])
-            else:
-                 send_notification("Audio Routed", f"Switched to {best_sink['name']}", best_sink["icon"])
-                 
-            self.current_sink_name = best_sink["name"]
+        # 1. Route Sink (Output)
+        if available_sinks:
+            best_sink = available_sinks[0]
+            if self.current_sink_name != best_sink["name"]:
+                print(f"[Router] Switching output to: {best_sink['name']} (Priority: {best_sink['priority']})")
+                subprocess.run(["wpctl", "set-default", best_sink["id"]])
+                
+                if self.config["devices"][best_sink["name"]]["type"] == "special_rog":
+                     send_notification("Headset Connected", f"Audio out: {best_sink['name']}", best_sink["icon"])
+                elif self.current_sink_name and self.config["devices"].get(self.current_sink_name, {}).get("type") == "special_rog":
+                     send_notification("Headset Disconnected", f"Audio fell back to {best_sink['name']}", best_sink["icon"])
+                else:
+                     send_notification("Audio Output Routed", f"Switched to {best_sink['name']}", best_sink["icon"])
+                     
+                self.current_sink_name = best_sink["name"]
+
+        # 2. Route Source (Input)
+        if available_sources:
+            best_source = available_sources[0]
+            if self.current_source_name != best_source["name"]:
+                print(f"[Router] Switching input to: {best_source['name']} (Priority: {best_source['priority']})")
+                subprocess.run(["wpctl", "set-default", best_source["id"]])
+                
+                # Avoid double-notifying if it's the ROG headset (since sink usually triggers it)
+                if self.config["devices"][best_source["name"]]["type"] != "special_rog":
+                    send_notification("Microphone Routed", f"Switched to {best_source['name']}", "audio-input-microphone")
+                    
+                self.current_source_name = best_source["name"]
 
 if __name__ == "__main__":
     router = PriorityRouter()
