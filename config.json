@@ -1,0 +1,52 @@
+{
+    "devices": {
+        "Built-in Audio Analog Stereo": {
+            "type": "generic",
+            "priority": 1,
+            "icon": "audio-card",
+            "is_sink": true
+        },
+        "Easy Effects Sink": {
+            "type": "generic",
+            "priority": 0,
+            "icon": "audio-card",
+            "is_sink": true
+        },
+        "ROG DELTA II (2.4GHz) Analog Stereo": {
+            "type": "special_rog",
+            "priority": 100,
+            "icon": "audio-headset",
+            "is_sink": true
+        },
+        "AD103 High Definition Audio Controller Digital Stereo (HDMI)": {
+            "type": "generic",
+            "priority": 50,
+            "icon": "audio-card",
+            "is_sink": true
+        },
+        "Easy Effects Source": {
+            "type": "generic",
+            "priority": 0,
+            "icon": "audio-card",
+            "is_sink": false
+        },
+        "ROG DELTA II (2.4GHz) Mono": {
+            "type": "special_rog",
+            "priority": 100,
+            "icon": "audio-headset",
+            "is_sink": false
+        },
+        "USB2.0 HD UVC WebCam (V4L2)": {
+            "type": "generic",
+            "priority": 1,
+            "icon": "audio-card",
+            "is_sink": false
+        },
+        "Dustin's Buds3 Pro": {
+            "type": "generic",
+            "priority": 99,
+            "icon": "audio-headset",
+            "is_sink": true
+        }
+    }
+}

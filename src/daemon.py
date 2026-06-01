@@ -2,6 +2,7 @@ import time
 import subprocess
 from core.config import load_config, save_config, ensure_device_in_config
 from core.audio_monitor import AudioMonitor
+from core.bt_battery_monitor import BluetoothBatteryMonitor
 from devices.rog_delta_ii import RogDeltaII
 
 def send_notification(title, message, icon="audio-card", urgency="normal"):
@@ -21,12 +22,13 @@ class PriorityRouter:
     def __init__(self):
         self.config = load_config()
         self.audio_monitor = AudioMonitor(self.on_system_audio_change)
+        self.bt_battery_monitor = BluetoothBatteryMonitor(self.on_bt_battery)
         
         # State
         self.rog_connected = False
         self.current_sink_name = None
         self.current_source_name = None
-        self.battery_last_notified = None
+        self.battery_last_notified = {} # Dictionary to track multiple devices
         
         self.rog_watcher = RogDeltaII({
             'on_connect': self.on_rog_connect,
@@ -37,6 +39,7 @@ class PriorityRouter:
     def start(self):
         print("Starting Smart Audio Manager...")
         self.audio_monitor.start()
+        self.bt_battery_monitor.start()
         
         import threading
         t = threading.Thread(target=self.rog_watcher.listen, daemon=True)
@@ -52,36 +55,41 @@ class PriorityRouter:
     def on_rog_connect(self):
         print("\n[Event] ROG Delta II Connected")
         self.rog_connected = True
-        self.battery_last_notified = None
+        self.battery_last_notified["rog"] = None
         self.evaluate_routing()
         
     def on_rog_disconnect(self):
         print("\n[Event] ROG Delta II Disconnected")
         self.rog_connected = False
-        self.battery_last_notified = None
+        self.battery_last_notified["rog"] = None
         self.evaluate_routing()
         
-    def on_rog_battery(self, level):
-        print(f"[Status] ROG Delta II Battery: {level}%")
+    def _handle_battery_notification(self, device_id, name, level, title_prefix="Headset"):
         threshold = None
         urgency = "normal"
         icon = "battery-good"
-        title = ""
         
         if level <= 10:
             threshold = "critical"
             urgency = "critical"
             icon = "battery-empty"
-            title = "Headset Battery Critical"
         elif level <= 20:
             threshold = "low"
             urgency = "normal"
             icon = "battery-low"
-            title = "Headset Battery Low"
             
-        if threshold and self.battery_last_notified != threshold:
-            self.battery_last_notified = threshold
-            send_notification(title, f"ROG Delta II is at {level}%", icon, urgency)
+        last_notified = self.battery_last_notified.get(device_id)
+        if threshold and last_notified != threshold:
+            self.battery_last_notified[device_id] = threshold
+            send_notification(f"{title_prefix} Battery {threshold.title()}", f"{name} is at {level}%", icon, urgency)
+            
+    def on_rog_battery(self, level):
+        print(f"[Status] ROG Delta II Battery: {level}%")
+        self._handle_battery_notification("rog", "ROG Delta II", level)
+
+    def on_bt_battery(self, name, level):
+        print(f"[Status] {name} Battery: {level}%")
+        self._handle_battery_notification(name, name, level, title_prefix=name)
 
     def on_system_audio_change(self):
         print("\n[Event] System Audio Devices Changed")
@@ -151,7 +159,6 @@ class PriorityRouter:
                 print(f"[Router] Switching input to: {best_source['name']} (Priority: {best_source['priority']})")
                 subprocess.run(["wpctl", "set-default", best_source["id"]])
                 
-                # Avoid double-notifying if it's the ROG headset (since sink usually triggers it)
                 if self.config["devices"][best_source["name"]]["type"] != "special_rog":
                     send_notification("Microphone Routed", f"Switched to {best_source['name']}", "audio-input-microphone")
                     
