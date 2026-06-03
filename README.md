@@ -9,6 +9,12 @@ This is mostly for myself, but in case my friends use it, here is the instructio
 ./install.sh
 ```
 
+## Uninstallation
+To disable the daemon and clean up the systemd services and udev rules, run:
+```bash
+./uninstall.sh
+```
+
 ## Configuration (`config.json`)
 Devices are **automatically added** to `config.json` the moment you plug them in or turn them on. You do not need to manually type out exact PipeWire device names! Simply connect a new monitor, TV, or Bluetooth headset, and the daemon will immediately generate an entry for it.
 
