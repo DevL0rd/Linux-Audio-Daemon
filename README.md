@@ -1,4 +1,4 @@
-# Smart Audio Manager
+# Linux-Audio-Daemon
 
 A modular daemon that automatically switches audio output and microphone input based on customizable rules. Also supports reading usb packets from dongles for devices that are always available even when headset is disconnected, so that we can switch to a headset when it actually connects.
 
