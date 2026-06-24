@@ -61,13 +61,6 @@ class RogDeltaII:
                                     self.callbacks['on_disconnect']()
                         elif data[2:4] == b'\x09\x00':
                             battery = data[5]
-                            
-                            # If we get a battery report, the headset is definitely on and connected!
-                            if not self.is_connected:
-                                self.is_connected = True
-                                if 'on_connect' in self.callbacks:
-                                    self.callbacks['on_connect']()
-                                    
                             if 'on_battery' in self.callbacks:
                                 self.callbacks['on_battery'](battery)
             except PermissionError:
