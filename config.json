@@ -47,6 +47,24 @@
             "priority": 99,
             "icon": "audio-headset",
             "is_sink": true
+        },
+        "Dummy Output": {
+            "type": "generic",
+            "priority": 0,
+            "icon": "audio-card",
+            "is_sink": true
+        },
+        "WiVRn": {
+            "type": "generic",
+            "priority": 101,
+            "icon": "audio-card",
+            "is_sink": true
+        },
+        "WiVRn(microphone)": {
+            "type": "generic",
+            "priority": 101,
+            "icon": "audio-card",
+            "is_sink": false
         }
     }
 }

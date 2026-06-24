@@ -1,10 +1,10 @@
 import os
 import glob
+import time
 
 class RogDeltaII:
     def __init__(self, callbacks):
         self.callbacks = callbacks
-        self.hidraw_device = self._find_hidraw("0b05", "1afa")
         self.is_connected = False
         
     def _find_hidraw(self, vendor_id, product_id):
@@ -24,31 +24,66 @@ class RogDeltaII:
         return None
 
     def listen(self):
-        if not self.hidraw_device:
-            print("[ROG Delta II] Dongle not found (no hidraw device matched).")
-            return
+        while True:
+            hidraw_device = self._find_hidraw("0b05", "1afa")
+            
+            if not hidraw_device:
+                time.sleep(5)
+                continue
 
-        print(f"[ROG Delta II] Listening on {self.hidraw_device}...")
-        try:
-            fd = os.open(self.hidraw_device, os.O_RDONLY)
-            while True:
-                data = os.read(fd, 64)
-                if len(data) >= 6 and data[0:2] == b'\xcc\x12':
-                    if data[2:6] == b'\x00\x00\x01\x01':
-                        if not self.is_connected:
-                            self.is_connected = True
-                            if 'on_connect' in self.callbacks:
-                                self.callbacks['on_connect']()
-                    elif data[2:6] == b'\x00\x00\x01\x00':
-                        if self.is_connected:
-                            self.is_connected = False
-                            if 'on_disconnect' in self.callbacks:
-                                self.callbacks['on_disconnect']()
-                    elif data[2:4] == b'\x09\x00':
-                        battery = data[5]
-                        if 'on_battery' in self.callbacks:
-                            self.callbacks['on_battery'](battery)
-        except PermissionError:
-            print(f"[ROG Delta II] Permission denied opening {self.hidraw_device}. Check udev rules.")
-        except Exception as e:
-            print(f"[ROG Delta II] Error: {e}")
+            print(f"[ROG Delta II] Listening on {hidraw_device}...")
+            try:
+                # Open with O_RDWR so we can ping it
+                fd = os.open(hidraw_device, os.O_RDWR)
+                
+                # Proactively ping the dongle for battery status. 
+                # This forces it to respond if the headset is currently turned on.
+                try:
+                    os.write(fd, bytearray([0xcc, 0x12, 0x09] + [0] * 61))
+                except Exception as e:
+                    print(f"[ROG Delta II] Failed to send startup ping: {e}")
+
+                while True:
+                    data = os.read(fd, 64)
+                    if not data:
+                        break # EOF
+                    
+                    if len(data) >= 6 and data[0:2] == b'\xcc\x12':
+                        if data[2:6] == b'\x00\x00\x01\x01':
+                            if not self.is_connected:
+                                self.is_connected = True
+                                if 'on_connect' in self.callbacks:
+                                    self.callbacks['on_connect']()
+                        elif data[2:6] == b'\x00\x00\x01\x00':
+                            if self.is_connected:
+                                self.is_connected = False
+                                if 'on_disconnect' in self.callbacks:
+                                    self.callbacks['on_disconnect']()
+                        elif data[2:4] == b'\x09\x00':
+                            battery = data[5]
+                            
+                            # If we get a battery report, the headset is definitely on and connected!
+                            if not self.is_connected:
+                                self.is_connected = True
+                                if 'on_connect' in self.callbacks:
+                                    self.callbacks['on_connect']()
+                                    
+                            if 'on_battery' in self.callbacks:
+                                self.callbacks['on_battery'](battery)
+            except PermissionError:
+                print(f"[ROG Delta II] Permission denied opening {hidraw_device}. Check udev rules.")
+                time.sleep(5)
+            except Exception as e:
+                print(f"[ROG Delta II] Connection lost or error: {e}")
+                if self.is_connected:
+                    self.is_connected = False
+                    if 'on_disconnect' in self.callbacks:
+                        self.callbacks['on_disconnect']()
+                
+            finally:
+                try:
+                    os.close(fd)
+                except Exception:
+                    pass
+                
+            time.sleep(2)
