@@ -61,8 +61,15 @@ class RogDeltaII:
                                     self.callbacks['on_disconnect']()
                         elif data[2:4] == b'\x09\x00':
                             battery = data[5]
-                            if 'on_battery' in self.callbacks:
-                                self.callbacks['on_battery'](battery)
+                            # 0xFF/255 is the "headset off/unknown" sentinel; a value
+                            # in 0..100 means the headset is actually on.
+                            if battery <= 100:
+                                if not self.is_connected:
+                                    self.is_connected = True
+                                    if 'on_connect' in self.callbacks:
+                                        self.callbacks['on_connect']()
+                                if 'on_battery' in self.callbacks:
+                                    self.callbacks['on_battery'](battery)
             except PermissionError:
                 print(f"[ROG Delta II] Permission denied opening {hidraw_device}. Check udev rules.")
                 time.sleep(5)
